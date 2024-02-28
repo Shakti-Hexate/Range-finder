@@ -112,7 +112,8 @@ def plot():
     if file:
         df = pd.read_csv(io.StringIO(file.stream.read().decode("UTF8")))
         df.index = pd.to_datetime(df.index)
-        window = float(request.form['window'])
+        window = float(request.form['window_size'])
+        tick = float(request.form['tick_size'])
 
         fig, ax = plt.subplots(1, 1, sharex=True, figsize=(18, 10))
         mpf.plot(df, type='candle', style='charles', ax=ax)
@@ -121,7 +122,7 @@ def plot():
         longest_line_data = None
         ul = df.High.max()+1
         ll = df.Low.min()-1
-        inc = 0.01
+        inc = tick
         itr = int((ul-ll)/inc)+1
 
         for k in range(itr):
