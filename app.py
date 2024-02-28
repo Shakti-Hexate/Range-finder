@@ -121,7 +121,7 @@ def plot():
         longest_line_data = None
         ul = df.High.max()+1
         ll = df.Low.min()-1
-        inc = 0.005
+        inc = 0.01
         itr = int((ul-ll)/inc)+1
 
         for k in range(itr):
