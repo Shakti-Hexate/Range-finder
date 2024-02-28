@@ -57,16 +57,32 @@
         button[type="submit"]:hover {
             background: linear-gradient(to right, #45a049, #2E8B57); /* Darker gradient on hover */
         }
+        label {
+            margin-bottom: 5px; /* Added spacing between labels and inputs */
+        }
+        #window_size {
+            margin-bottom: 10px; /* Added space after window_size input */
+        }
     </style>
 </head>
 <body>
     <form action="/plot" method="post" enctype="multipart/form-data">
         <h1>Upload CSV File</h1>
         <input type="file" name="file" accept=".csv" required>
-        <label for="window">Enter window size:</label>
-        <input type="float" name="window" id="window" required> <!-- Changed type to number -->
-        <input type="submit" value="Upload">
-        <button type="submit" formaction="/best">Best</button>
+        <div>
+            <label for="window">Enter window size:</label>
+            <div>
+                <input type="float" name="window_size" id="window_size" step="any" required>
+            </div>
+        </div>
+        <div style="margin-bottom: 10px;">
+            <label for="tick">Enter tick size:</label>
+            <div>
+                <input type="float" name="tick_size" id="tick_size" step="any" required>
+            </div>
+        </div>
+        <input type="submit" value="Upload"> <!-- Use only one submit button -->
+        <button type="submit" formaction="/best">Best</button> <!-- Adjusted button -->
     </form>
 </body>
 </html>
