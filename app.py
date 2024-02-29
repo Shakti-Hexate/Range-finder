@@ -5,8 +5,13 @@ import matplotlib.pyplot as plt
 import mplfinance as mpf
 import io
 import base64
+import logging
+import math
+
 
 app = Flask(__name__)
+
+app.logger.setLevel(logging.DEBUG)
 
 def calculate_adx(high, low, close, window=14):
     tr1 = high - low
@@ -30,6 +35,17 @@ def calculate_adx(high, low, close, window=14):
     
     return adx
 
+def calculate_atr(df, period=14):
+    df['TR'] = df.apply(lambda row: max(row['High'] - row['Low'],
+                                        abs(row['High'] - row['Close'].shift(1)),
+                                        abs(row['Low'] - row['Close'].shift(1))), axis=1)
+    df['ATR'] = df['TR'].rolling(window=period).mean()
+    return df['ATR']
+
+def calculate_sma(df, window=20):
+    return df['Close'].rolling(window=window).mean()
+
+
 @app.route('/')
 def upload_file():
     return render_template('upload.html')
@@ -52,14 +68,14 @@ def plot_best():
 
         i = 14
         j = 14
-        ct = 2
+        ct = 0
         longest_length = 0
         longest_line_data = None
 
         while(i < len(adx) and j < len(adx)):
             if adx[j] < 26:
                 j = j + 1
-            elif ct <= 2 or ct <= (j-i)/10:
+            elif ct <= 1 or ct <= (j-i)/10:
                 ct = ct + 1
                 j = j + 1
             else:
@@ -93,6 +109,7 @@ def plot_best():
             ax.axhline(y=hi, color='r', linestyle='-', xmin=i / len(df), xmax=j / len(df))
             ax.text(0.01 , 0.95 , f"Longest range: {longest_length} Candles" , transform=ax.transAxes , fontsize=12 , verticalalignment='top')
             ax.text(0.01 , 0.90 , f"Width: {hi-lo}" , transform=ax.transAxes , fontsize=12 , verticalalignment='top')
+
         buffer = io.BytesIO()
         plt.savefig(buffer, format='png')
         buffer.seek(0)
@@ -118,42 +135,107 @@ def plot():
         fig, ax = plt.subplots(1, 1, sharex=True, figsize=(18, 10))
         mpf.plot(df, type='candle', style='charles', ax=ax)
 
-        longest_length = 0
-        longest_line_data = None
-        ul = df.High.max()+1
-        ll = df.Low.min()-1
-        inc = tick
-        itr = int((ul-ll)/inc)+1
+        # longest_length = 0
+        # longest_line_data = None
+        # ul = df.High.max()+1
+        # ll = df.Low.min()-1
+        # inc = tick
+        # itr = int((ul-ll)/inc)+1
 
-        for k in range(itr):
-            lr = float(ll + k*inc)
-            ur = float(lr+window)
-            i = 0
-            j = 0
-            ct = 2
+        # for k in range(itr):
+        #     lr = float(ll + k*inc)
+        #     ur = float(lr+window)
+        #     i = 0
+        #     j = 0
+        #     ct = 0
 
-            while(i<len(df.Close) and j<len(df.Close)):
-                if df.High[j] <= ur and df.Low[j] >= lr:
-                    j = j+1
-                elif ct <= 2 or ct <= (j-i)/10:
-                    ct = ct + 1
-                    j = j + 1
-                else:
+        #     while(i<len(df.Close) and j<len(df.Close)):
+        #         if df.High[j] - tick <= ur and df.Low[j] + tick >= lr:
+        #             j = j+1
+        #         elif ct <= 2 or ct <= (j-i)/10:
+        #             ct = ct + 1
+        #             j = j + 1
+        #         else:
                     
-                    line_length = j - i
-                    if line_length > longest_length:
-                        longest_length = line_length
-                        longest_line_data = (lr , ur , i , j)
+        #             line_length = j - i
+        #             if line_length > longest_length:
+        #                 longest_length = line_length
+        #                 longest_line_data = (lr , ur , i , j)
     
-                    ct = 0
-                    i = j
+        #             ct = 0
+        #             i = j
 
-        if longest_line_data:
-            lr , ur , i , j = longest_line_data
-            ax.axhline(y=lr, color='b', linestyle='-', xmin=i / len(df), xmax=j / len(df))
-            ax.axhline(y=ur, color='r', linestyle='-', xmin=i / len(df), xmax=j / len(df))
-            ax.text(0.01 , 0.95 , f"Longest range: {longest_length} Candles" , transform=ax.transAxes , fontsize=12 , verticalalignment='top')
+        # while(i < len(df.Close) and j < len(df.Close)):
+        #     if l == 0:
+        #         if df.High[j] - df.Low[j] - 2*tick <= window:
+        #             j = j+1
+        #             l = l+1
+        #         elif ct < 2 or ct < (j-i)/10:
+        #             ct = ct+1
+        #             j = j+1
 
+
+        # if longest_line_data:
+        #     lr , ur , i , j = longest_line_data
+        #     ax.axhline(y=lr, color='b', linestyle='-', xmin=i / len(df), xmax=j / len(df))
+        #     ax.axhline(y=ur, color='r', linestyle='-', xmin=i / len(df), xmax=j / len(df))
+        #     ax.text(0.01 , 0.95 , f"Longest range: {longest_length} Candles" , transform=ax.transAxes , fontsize=12 , verticalalignment='top')
+
+        adx = calculate_adx(df.High, df.Low, df.Close)
+
+        i = 14
+        j = 14
+        ct = 0
+        sum = 0
+        n = 0
+        while(i < len(adx) and j < len(adx)):
+            if adx[j] < 25 and df.High[j] - df.Low[j] - 2*tick <= window:
+                j = j + 1
+            elif ct <= 1 or ct <= (j-i)/10:
+                ct = ct + 1
+                j = j + 1
+            else:
+                a = df.High[i:j+1]
+                b = df.Low[i:j+1]
+                x = a.mean()
+                y = b.mean()
+                # if j - i <= 10:
+                #     ct = 0
+                #     i = j
+                #     continue
+                if ct == 0:
+                    hi = a.max()
+                    lo = b.min()
+                    mid = (x+y)/2
+                    app.logger.debug(mid)
+                    line_length = j - i
+                    if line_length <= 10:
+                        ct = 0
+                        i = j
+                        continue
+                    ax.axhline(y=mid-window/2, color='b', linestyle='-', xmin=i / len(df), xmax=j / len(df))
+                    ax.axhline(y=mid+window/2, color='r', linestyle='-', xmin=i / len(df), xmax=j / len(df))
+                    n = n+1
+                    sum = sum + line_length
+                elif len(a) >= ct and len(b) >= ct:
+                    hi = a.max()
+                    lo = b.min()
+                    mid = (x+y)/2
+                    line_length = j - i
+                    if line_length <= 10:
+                        ct = 0
+                        i = j
+                        continue
+                    ax.axhline(y=mid-window/2, color='b', linestyle='-', xmin=i / len(df), xmax=j / len(df))
+                    ax.axhline(y=mid+window/2, color='r', linestyle='-', xmin=i / len(df), xmax=j / len(df)) 
+                    n = n+1
+                    sum = sum + line_length             
+                ct = 0
+                i = j
+        if n:
+            ax.text(0.01 , 0.95 , f"Average range: {math.floor(sum/n)} Candles" , transform=ax.transAxes , fontsize=12 , verticalalignment='top') 
+        else:
+            ax.text(0.01 , 0.95 , f"No range found" , transform=ax.transAxes , fontsize=12 , verticalalignment='top') 
         buffer = io.BytesIO()
         plt.savefig(buffer, format='png')
         buffer.seek(0)
