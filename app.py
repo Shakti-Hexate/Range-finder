@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request , redirect
+from flask import Flask, render_template, request
 from werkzeug.utils import secure_filename
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -7,7 +7,6 @@ import io
 import base64
 import logging
 import math
-from lightweight_charts import Chart
 
 
 app = Flask(__name__)
@@ -64,12 +63,8 @@ def plot_best():
         #window = int(request.form['window'])
         adx = calculate_adx(df.High, df.Low, df.Close)
 
-        # fig, ax = plt.subplots(1, 1, sharex=True, figsize=(18, 10))
-        # mpf.plot(df, type='candle', style='charles', ax=ax)
-        chart = Chart()
-        data = df
-        data = data.rename(columns={'High' : 'high' , 'Low' : 'low' , 'Close' : 'close' , 'Open' : 'open' , 'Timestamp (UTC)' : 'time'})
-        chart.set(data)
+        fig, ax = plt.subplots(1, 1, sharex=True, figsize=(18, 10))
+        mpf.plot(df, type='candle', style='charles', ax=ax)
 
         i = 14
         j = 14
@@ -110,22 +105,19 @@ def plot_best():
 
         if longest_line_data:
             lo, hi, i, j = longest_line_data
-            # ax.axhline(y=lo, color='b', linestyle='-', xmin=i / len(df), xmax=j / len(df))
-            # ax.axhline(y=hi, color='r', linestyle='-', xmin=i / len(df), xmax=j / len(df))
-            # ax.text(0.01 , 0.95 , f"Longest range: {longest_length} Candles" , transform=ax.transAxes , fontsize=12 , verticalalignment='top')
-            # ax.text(0.01 , 0.90 , f"Width: {hi-lo}" , transform=ax.transAxes , fontsize=12 , verticalalignment='top')
-            chart.trend_line(start_time=data.time[i] , end_time=data.time[j] , start_value=hi , end_value=hi , color='red')
-            chart.trend_line(start_time=data.time[i] , end_time=data.time[j] , start_value=lo , end_value=lo , color='blue')
-        # buffer = io.BytesIO()
-        # plt.savefig(buffer, format='png')
-        # buffer.seek(0)
-        # plot_data = base64.b64encode(buffer.getvalue()).decode()
+            ax.axhline(y=lo, color='b', linestyle='-', xmin=i / len(df), xmax=j / len(df))
+            ax.axhline(y=hi, color='r', linestyle='-', xmin=i / len(df), xmax=j / len(df))
+            ax.text(0.01 , 0.95 , f"Longest range: {longest_length} Candles" , transform=ax.transAxes , fontsize=12 , verticalalignment='top')
+            ax.text(0.01 , 0.90 , f"Width: {hi-lo}" , transform=ax.transAxes , fontsize=12 , verticalalignment='top')
 
-        # plt.close(fig)
+        buffer = io.BytesIO()
+        plt.savefig(buffer, format='png')
+        buffer.seek(0)
+        plot_data = base64.b64encode(buffer.getvalue()).decode()
 
-        # return '<img src="data:image/png;base64,{}">'.format(plot_data)
-        chart.show()
-    return redirect('/')    
+        plt.close(fig)
+
+        return '<img src="data:image/png;base64,{}">'.format(plot_data)    
 
 @app.route('/plot', methods=['POST'])
 def plot():
@@ -139,14 +131,9 @@ def plot():
         df.index = pd.to_datetime(df.index)
         window = float(request.form['window_size'])
         tick = float(request.form['tick_size'])
-        chart = Chart()
-        data = df
-        data = data.rename(columns={'High' : 'high' , 'Low' : 'low' , 'Close' : 'close' , 'Open' : 'open' , 'Timestamp (UTC)' : 'time'})
-        chart.set(data)
-        
 
-        # fig, ax = plt.subplots(1, 1, sharex=True, figsize=(18, 10))
-        # mpf.plot(df, type='candle', style='charles', ax=ax)
+        fig, ax = plt.subplots(1, 1, sharex=True, figsize=(18, 10))
+        mpf.plot(df, type='candle', style='charles', ax=ax)
 
         # longest_length = 0
         # longest_line_data = None
@@ -202,9 +189,9 @@ def plot():
         sum = 0
         n = 0
         while(i < len(adx) and j < len(adx)):
-            if adx[j] < 26 and df.High[j] - df.Low[j] - 2*tick <= window:
+            if adx[j] < 25 and df.High[j] - df.Low[j] - 2*tick <= window:
                 j = j + 1
-            elif ct <= 2 or ct <= (j-i)/10:
+            elif ct <= 1 or ct <= (j-i)/10:
                 ct = ct + 1
                 j = j + 1
             else:
@@ -217,20 +204,17 @@ def plot():
                 #     i = j
                 #     continue
                 if ct == 0:
-                    hi = a.mean()
-                    lo = b.mean()
+                    hi = a.max()
+                    lo = b.min()
                     mid = (x+y)/2
                     app.logger.debug(mid)
                     line_length = j - i
-                    if line_length <= 2:
+                    if line_length <= 10:
                         ct = 0
                         i = j
                         continue
-                    #ax.axhline(y=mid-window/2, color='b', linestyle='-', xmin=i / len(df), xmax=j / len(df))
-                    #ax.axhline(y=mid+window/2, color='r', linestyle='-', xmin=i / len(df), xmax=j / len(df))
-                    chart.trend_line(start_time=data.time[i] , end_time=data.time[j] , start_value=mid + window/2 , end_value=mid + window/2 , color='red')
-                    chart.trend_line(start_time=data.time[i] , end_time=data.time[j] , start_value=mid - window/2 , end_value=mid - window/2 , color='blue')
-                    n = n+1
+                    ax.axhline(y=mid-window/2, color='b', linestyle='-', xmin=i / len(df), xmax=j / len(df))
+                    ax.axhline(y=mid+window/2, color='r', linestyle='-', xmin=i / len(df), xmax=j / len(df))
                     n = n+1
                     sum = sum + line_length
                 elif len(a) >= ct and len(b) >= ct:
@@ -238,37 +222,28 @@ def plot():
                     lo = b.min()
                     mid = (x+y)/2
                     line_length = j - i
-                    if line_length <= 2:
+                    if line_length <= 10:
                         ct = 0
                         i = j
                         continue
-                    #ax.axhline(y=mid-window/2, color='b', linestyle='-', xmin=i / len(df), xmax=j / len(df))
-                    #ax.axhline(y=mid+window/2, color='r', linestyle='-', xmin=i / len(df), xmax=j / len(df)) 
-                    chart.trend_line(start_time=data.time[i] , end_time=data.time[j] , start_value=mid + window/2 , end_value=mid + window/2 , color='red')
-                    chart.trend_line(start_time=data.time[i] , end_time=data.time[j] , start_value=mid - window/2 , end_value=mid - window/2 , color='blue')
+                    ax.axhline(y=mid-window/2, color='b', linestyle='-', xmin=i / len(df), xmax=j / len(df))
+                    ax.axhline(y=mid+window/2, color='r', linestyle='-', xmin=i / len(df), xmax=j / len(df)) 
                     n = n+1
                     sum = sum + line_length             
                 ct = 0
                 i = j
         if n:
-            chart.topbar.textbox('Average' , initial_text=f'Average : {math.floor(sum/n)} candles')
+            ax.text(0.01 , 0.95 , f"Average range: {math.floor(sum/n)} Candles" , transform=ax.transAxes , fontsize=12 , verticalalignment='top') 
         else:
-            chart.topbar.textbox(initial_text='No range found')
+            ax.text(0.01 , 0.95 , f"No range found" , transform=ax.transAxes , fontsize=12 , verticalalignment='top') 
+        buffer = io.BytesIO()
+        plt.savefig(buffer, format='png')
+        buffer.seek(0)
+        plot_data = base64.b64encode(buffer.getvalue()).decode()
 
-        chart.show(block=True)
-        # if n:
-        #     ax.text(0.01 , 0.95 , f"Average range: {math.floor(sum/n)} Candles" , transform=ax.transAxes , fontsize=12 , verticalalignment='top') 
-        # else:
-        #     ax.text(0.01 , 0.95 , f"No range found" , transform=ax.transAxes , fontsize=12 , verticalalignment='top') 
-        #buffer = io.BytesIO()
-        #plt.savefig(buffer, format='png')
-        #buffer.seek(0)
-        #plot_data = base64.b64encode(buffer.getvalue()).decode()
+        plt.close(fig)
 
-        #plt.close(fig)
-
-        #return '<img src="data:image/png;base64,{}">'.format(plot_data)
-        return redirect('/')
+        return '<img src="data:image/png;base64,{}">'.format(plot_data)
 
 if __name__ == '__main__':
     app.run(debug=True)
